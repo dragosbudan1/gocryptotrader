@@ -5,13 +5,55 @@ import (
 	"log"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/thrasher-/gocryptotrader/common"
+	"github.com/thrasher-/gocryptotrader/config"
 	"github.com/thrasher-/gocryptotrader/currency/pair"
 	"github.com/thrasher-/gocryptotrader/exchanges"
 	"github.com/thrasher-/gocryptotrader/exchanges/orderbook"
+	"github.com/thrasher-/gocryptotrader/exchanges/request"
 	"github.com/thrasher-/gocryptotrader/exchanges/ticker"
 )
+
+// SetDefaults sets the defaults for the exchange
+func (i *ItBit) SetDefaults() {
+	i.Name = "ITBIT"
+	i.Enabled = true
+	i.Verbose = true
+	i.APIWithdrawPermissions = exchange.WithdrawCryptoViaWebsiteOnly | exchange.WithdrawFiatViaWebsiteOnly
+	i.RequestCurrencyPairFormat.Uppercase = true
+	i.ConfigCurrencyPairFormat.Uppercase = true
+	i.AssetTypes = []string{ticker.Spot}
+	i.Features = exchange.Features{
+		Supports: exchange.FeaturesSupported{
+			AutoPairUpdates:    false,
+			RESTTickerBatching: false,
+			REST:               true,
+			Websocket:          false,
+		},
+		Enabled: exchange.FeaturesEnabled{
+			AutoPairUpdates: true,
+		},
+	}
+	i.Requester = request.New(i.Name,
+		request.NewRateLimit(time.Second, itbitAuthRate),
+		request.NewRateLimit(time.Second, itbitUnauthRate),
+		common.NewHTTPClientWithTimeout(exchange.DefaultHTTPTimeout))
+	i.API.Endpoints.URLDefault = itbitAPIURL
+	i.API.Endpoints.URL = i.API.Endpoints.URLDefault
+	i.API.CredentialsValidator.RequiresClientID = true
+}
+
+// Setup sets the exchange parameters from exchange config
+func (i *ItBit) Setup(exch config.ExchangeConfig) error {
+	if !exch.Enabled {
+		i.SetEnabled(false)
+		return nil
+	}
+
+	return i.SetupDefaults(exch)
+}
 
 // Start starts the ItBit go routine
 func (i *ItBit) Start(wg *sync.WaitGroup) {
@@ -25,9 +67,19 @@ func (i *ItBit) Start(wg *sync.WaitGroup) {
 // Run implements the ItBit wrapper
 func (i *ItBit) Run() {
 	if i.Verbose {
-		log.Printf("%s polling delay: %ds.\n", i.GetName(), i.RESTPollingDelay)
 		log.Printf("%s %d currencies enabled: %s.\n", i.GetName(), len(i.EnabledPairs), i.EnabledPairs)
 	}
+}
+
+// FetchTradablePairs returns a list of the exchanges tradable pairs
+func (i *ItBit) FetchTradablePairs() ([]string, error) {
+	return nil, common.ErrFunctionNotSupported
+}
+
+// UpdateTradablePairs updates the exchanges available pairs and stores
+// them in the exchanges config
+func (i *ItBit) UpdateTradablePairs(forceUpdate bool) error {
+	return common.ErrFunctionNotSupported
 }
 
 // UpdateTicker updates and returns the ticker for a currency pair

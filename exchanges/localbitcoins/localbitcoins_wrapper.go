@@ -6,13 +6,53 @@ import (
 	"log"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/thrasher-/gocryptotrader/common"
+	"github.com/thrasher-/gocryptotrader/config"
 	"github.com/thrasher-/gocryptotrader/currency/pair"
 	"github.com/thrasher-/gocryptotrader/exchanges"
 	"github.com/thrasher-/gocryptotrader/exchanges/orderbook"
+	"github.com/thrasher-/gocryptotrader/exchanges/request"
 	"github.com/thrasher-/gocryptotrader/exchanges/ticker"
 )
+
+// SetDefaults sets the package defaults for localbitcoins
+func (l *LocalBitcoins) SetDefaults() {
+	l.Name = "LocalBitcoins"
+	l.Enabled = true
+	l.Verbose = true
+	l.APIWithdrawPermissions = exchange.WithdrawCryptoViaWebsiteOnly
+	l.RequestCurrencyPairFormat.Uppercase = true
+	l.ConfigCurrencyPairFormat.Uppercase = true
+	l.Features = exchange.Features{
+		Supports: exchange.FeaturesSupported{
+			AutoPairUpdates:    false,
+			RESTTickerBatching: true,
+			REST:               true,
+			Websocket:          false,
+		},
+		Enabled: exchange.FeaturesEnabled{
+			AutoPairUpdates: false,
+		},
+	}
+	l.Requester = request.New(l.Name,
+		request.NewRateLimit(time.Second*0, localbitcoinsAuthRate),
+		request.NewRateLimit(time.Second*0, localbitcoinsUnauthRate),
+		common.NewHTTPClientWithTimeout(exchange.DefaultHTTPTimeout))
+	l.API.Endpoints.URLDefault = localbitcoinsAPIURL
+	l.API.Endpoints.URL = l.API.Endpoints.URLDefault
+}
+
+// Setup sets exchange configuration parameters
+func (l *LocalBitcoins) Setup(exch config.ExchangeConfig) error {
+	if !exch.Enabled {
+		l.SetEnabled(false)
+		return nil
+	}
+
+	return l.SetupDefaults(exch)
+}
 
 // Start starts the LocalBitcoins go routine
 func (l *LocalBitcoins) Start(wg *sync.WaitGroup) {
@@ -26,9 +66,19 @@ func (l *LocalBitcoins) Start(wg *sync.WaitGroup) {
 // Run implements the LocalBitcoins wrapper
 func (l *LocalBitcoins) Run() {
 	if l.Verbose {
-		log.Printf("%s polling delay: %ds.\n", l.GetName(), l.RESTPollingDelay)
 		log.Printf("%s %d currencies enabled: %s.\n", l.GetName(), len(l.EnabledPairs), l.EnabledPairs)
 	}
+}
+
+// FetchTradablePairs returns a list of the exchanges tradable pairs
+func (l *LocalBitcoins) FetchTradablePairs() ([]string, error) {
+	return nil, common.ErrFunctionNotSupported
+}
+
+// UpdateTradablePairs updates the exchanges available pairs and stores
+// them in the exchanges config
+func (l *LocalBitcoins) UpdateTradablePairs(forceUpdate bool) error {
+	return common.ErrFunctionNotSupported
 }
 
 // UpdateTicker updates and returns the ticker for a currency pair

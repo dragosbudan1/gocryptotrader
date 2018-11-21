@@ -5,13 +5,66 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/thrasher-/gocryptotrader/common"
+	"github.com/thrasher-/gocryptotrader/config"
 	"github.com/thrasher-/gocryptotrader/currency/pair"
 	exchange "github.com/thrasher-/gocryptotrader/exchanges"
 	"github.com/thrasher-/gocryptotrader/exchanges/orderbook"
+	"github.com/thrasher-/gocryptotrader/exchanges/request"
 	"github.com/thrasher-/gocryptotrader/exchanges/ticker"
 )
+
+// SetDefaults method assignes the default values for Bittrex
+func (o *OKEX) SetDefaults() {
+	o.SetErrorDefaults()
+	o.SetCheckVarDefaults()
+	o.Name = "OKEX"
+	o.Enabled = true
+	o.Verbose = true
+	o.APIWithdrawPermissions = exchange.AutoWithdrawCrypto
+	o.RequestCurrencyPairFormat.Delimiter = "_"
+	o.ConfigCurrencyPairFormat.Delimiter = "_"
+	o.Features = exchange.Features{
+		Supports: exchange.FeaturesSupported{
+			AutoPairUpdates:    false,
+			RESTTickerBatching: false,
+			REST:               true,
+			Websocket:          true,
+		},
+		Enabled: exchange.FeaturesEnabled{
+			AutoPairUpdates: false,
+		},
+	}
+	o.Requester = request.New(o.Name,
+		request.NewRateLimit(time.Second, okexAuthRate),
+		request.NewRateLimit(time.Second, okexUnauthRate),
+		common.NewHTTPClientWithTimeout(exchange.DefaultHTTPTimeout))
+	o.API.Endpoints.URLDefault = apiURL
+	o.API.Endpoints.URL = o.API.Endpoints.URLDefault
+	o.AssetTypes = []string{ticker.Spot}
+	o.WebsocketInit()
+}
+
+// Setup method sets current configuration details if enabled
+func (o *OKEX) Setup(exch config.ExchangeConfig) error {
+	if !exch.Enabled {
+		o.SetEnabled(false)
+		return nil
+	}
+
+	err := o.SetupDefaults(exch)
+	if err != nil {
+		return err
+	}
+
+	return o.WebsocketSetup(o.WsConnect,
+		exch.Name,
+		exch.Features.Enabled.Websocket,
+		okexDefaultWebsocketURL,
+		exch.API.Endpoints.WebsocketURL)
+}
 
 // Start starts the OKEX go routine
 func (o *OKEX) Start(wg *sync.WaitGroup) {
@@ -26,9 +79,19 @@ func (o *OKEX) Start(wg *sync.WaitGroup) {
 func (o *OKEX) Run() {
 	if o.Verbose {
 		log.Printf("%s Websocket: %s. (url: %s).\n", o.GetName(), common.IsEnabled(o.Websocket.IsEnabled()), o.WebsocketURL)
-		log.Printf("%s polling delay: %ds.\n", o.GetName(), o.RESTPollingDelay)
 		log.Printf("%s %d currencies enabled: %s.\n", o.GetName(), len(o.EnabledPairs), o.EnabledPairs)
 	}
+}
+
+// FetchTradablePairs returns a list of the exchanges tradable pairs
+func (o *OKEX) FetchTradablePairs() ([]string, error) {
+	return nil, common.ErrFunctionNotSupported
+}
+
+// UpdateTradablePairs updates the exchanges available pairs and stores
+// them in the exchanges config
+func (o *OKEX) UpdateTradablePairs(forceUpdate bool) error {
+	return common.ErrFunctionNotSupported
 }
 
 // UpdateTicker updates and returns the ticker for a currency pair
